@@ -58,20 +58,6 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 
 def parse_requirements(reqfile):
     requirements = []
-
-    with open(os.path.join(here, reqfile), encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            parsed = re.match(r"(\w+)(.*?)(;.*)?$", line)
-            pkg, deps, extra = parsed.groups()
-            if extra is None:
-                extra = ""
-            deps = deps.replace("==", "<=")
-            if pkg in MINIMUM_VERSIONS:
-                deps = f"{deps},>={MINIMUM_VERSIONS[pkg]}"
-            line = "".join([pkg, deps, extra])
-            requirements.append(line)
-
     return requirements
 
 
