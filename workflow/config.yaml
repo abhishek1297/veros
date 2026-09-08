@@ -1,0 +1,29 @@
+setup_file: veros/setups/global_flexible/global_flexible.py
+
+launcher: srun
+rank_env: SLURM_PROCID
+profiler: nsys
+profiler_args: "--trace=cuda,mpi,nvtx --sample=none"
+timesteps: 5
+repetitions: 1
+
+strong:
+  size: [180, 80, 20]
+
+weak:
+  local_size: [90, 40, 20]
+
+# Every nodes x gpus_per_node pair is run for both scaling modes.
+topologies:
+  - nodes: 1
+    gpus_per_node: 1
+  - nodes: 1
+    gpus_per_node: 2
+  - nodes: 1
+    gpus_per_node: 4
+  - nodes: 2
+    gpus_per_node: 4
+  - nodes: 3
+    gpus_per_node: 4
+  - nodes: 4
+    gpus_per_node: 4

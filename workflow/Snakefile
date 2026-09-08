@@ -1,0 +1,80 @@
+from pathlib import Path
+
+configfile: "workflow/config.yaml"
+
+RESULT_ROOT = Path("results/scaling")
+
+
+def topologies():
+    return [(str(item["nodes"]), str(item["gpus_per_node"])) for item in config["topologies"]]
+
+
+def result_files():
+    return [
+        str(RESULT_ROOT / mode / f"nodes{nodes}-gpus{gpus}" / "scaling.json")
+        for mode in ("strong", "weak")
+        for nodes, gpus in topologies()
+    ]
+
+
+rule all:
+    input:
+        result_files(),
+        "results/scaling/plots/scaling.png",
+
+
+rule scaling:
+    output:
+        json=RESULT_ROOT / "{mode}" / "nodes{nodes}-gpus{gpus}" / "scaling.json",
+    threads: 1
+    resources:
+        # These are scheduler hints; use --default-resources or a cluster profile
+        # to map them to your site's Snakemake submission command.
+        nodes=lambda wildcards: int(wildcards.nodes),
+        gpus=lambda wildcards: int(wildcards.gpus),
+    params:
+        size_args=lambda wildcards: (
+            "--size " + " ".join(map(str, config["strong"]["size"]))
+            if wildcards.mode == "strong"
+            else "--local-size " + " ".join(map(str, config["weak"]["local_size"]))
+        ),
+        topology_args=lambda wildcards: (
+            f"--nodes {wildcards.nodes} --ntasks-per-node {wildcards.gpus} "
+            "--gpus-per-task=1 --gpu-bind=closest"
+        ),
+        output_dir=lambda wildcards: str(
+            RESULT_ROOT / wildcards.mode / f"nodes{wildcards.nodes}-gpus{wildcards.gpus}"
+        ),
+    shell:
+        r"""
+        mkdir -p "$(dirname '{output.json}')"
+        ranks=$(( {wildcards.nodes} * {wildcards.gpus} ))
+        python tools/cuda_scaling.py \
+            --mode {wildcards.mode} \
+            --ranks "$ranks" \
+            --timesteps {config[timesteps]} \
+            --repetitions {config[repetitions]} \
+            --launcher {config[launcher]} \
+            --launcher-args "{params.topology_args}" \
+            --rank-env {config[rank_env]} \
+            --profiler {config[profiler]} \
+            --profiler-args '{config[profiler_args]}' \
+            --output-dir "{params.output_dir}" \
+            {params.size_args} \
+            -- \
+            veros run {config[setup_file]} \
+                -b jax --device gpu \
+                -n {{px}} {{py}} \
+                -s nx {{nx}} -s ny {{ny}} -s nz {{nz}} \
+                -s runlen $(({config[timesteps]} * 900)) \
+                --diskless-mode
+        """
+
+
+rule plot:
+    input:
+        result_files(),
+    output:
+        "results/scaling/plots/scaling.png",
+    shell:
+        "python tools/plot_scaling.py --input-glob 'results/scaling/*/scaling.json' --output {output}"
