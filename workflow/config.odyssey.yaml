@@ -8,11 +8,13 @@ timesteps: 5
 repetitions: 1
 
 environment:
-  omp_num_threads: 1
-  veros_asset_dir: /Odyssey/private/e25cheve/veros/veros_assets
-  home: /Odyssey/private/e25cheve/
-  conda_sh: /Odyssey/private/e25cheve/miniconda3/etc/profile.d/conda.sh
-  conda_env: /Odyssey/private/e25cheve/miniconda3/envs/veros
+  init: |
+    export OMP_NUM_THREADS=1
+    export VEROS_ASSET_DIR=/Odyssey/private/e25cheve/veros/veros_assets
+    export HOME=/Odyssey/private/e25cheve/
+
+    source /Odyssey/private/e25cheve/miniconda3/etc/profile.d/conda.sh
+    conda activate /Odyssey/private/e25cheve/miniconda3/envs/veros
 
 strong:
   size: [180, 80, 20]

@@ -218,7 +218,11 @@ class VerosRoutine:
                     veros_state._variables._scatter_variables()
                     veros_state._variables = orig_vars
 
-                flush(veros_state._variables)
+                # NOTE: don't block on the real state here -- some of its arrays may
+                # be mid-transfer in an in-flight mpi4jax/UCX GPU-direct exchange
+                # (e.g. from enforce_boundaries), and polling them directly can
+                # segfault. A disconnected fence just drains the compute stream.
+                flush()
 
         if out is not None:
             logger.warning(

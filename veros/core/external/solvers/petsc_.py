@@ -107,7 +107,7 @@ class PETScSolver(LinearSolver):
 
     def _petsc_solver(self, rhs, x0):
         # hangs on multi-GPU without this
-        flush((rhs, x0))
+        flush()
 
         self._da.getVecArray(self._rhs_petsc)[...] = rhs[2:-2, 2:-2]
         self._da.getVecArray(self._sol_petsc)[...] = x0[2:-2, 2:-2]

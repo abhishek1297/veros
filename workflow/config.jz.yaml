@@ -1,0 +1,45 @@
+setup_file: veros/setups/global_flexible/global_flexible.py
+
+launcher: srun
+rank_env: SLURM_PROCID
+profiler: nsys
+profiler_args: "--trace=cuda,nvtx --sample=none"
+timesteps: 5
+repetitions: 1
+
+environment:
+  init: |
+    module purge
+    module load arch/h100
+    module load pytorch-gpu/py3/2.13.0
+
+    source .venv/bin/activate
+
+    export MPI4JAX_USE_CUDA_MPI=1
+    export XLA_PYTHON_CLIENT_PREALLOCATE="false"
+    # workaround for a CUDA-IPC/UCX segfault seen on this cluster; see
+    # workflow/README.md for how to confirm this is still needed
+    export UCX_TLS=^cuda_ipc
+    # TODO: set to the actual asset directory on this cluster
+    export VEROS_ASSET_DIR=/lustre/fswork/projects/rech/yah/uyl42ho/veros_assets
+
+strong:
+  size: [180, 80, 20]
+
+weak:
+  local_size: [90, 40, 20]
+
+# Every nodes x gpus_per_node pair is run for both scaling modes.
+topologies:
+  - nodes: 1
+    gpus_per_node: 1
+  - nodes: 1
+    gpus_per_node: 2
+  - nodes: 1
+    gpus_per_node: 4
+  - nodes: 2
+    gpus_per_node: 4
+  - nodes: 3
+    gpus_per_node: 4
+  - nodes: 4
+    gpus_per_node: 4

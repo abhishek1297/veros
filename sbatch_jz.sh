@@ -14,6 +14,9 @@ module load pytorch-gpu/py3/2.13.0
 source .venv/bin/activate
 export MPI4JAX_USE_CUDA_MPI=1
 export XLA_PYTHON_CLIENT_PREALLOCATE="false"
+# workaround for a CUDA-IPC/UCX segfault seen on this cluster; remove once
+# openmpi/4.1.8-cuda and jax's local CUDA toolkit are confirmed to match
+export UCX_TLS=^cuda_ipc
 
 echo "VEROS Asset Dir: $VEROS_ASSET_DIR"
 echo "Active Python: $(which python3)"

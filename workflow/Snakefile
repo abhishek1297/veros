@@ -2,8 +2,8 @@ import os
 import shlex
 from pathlib import Path
 
-configfile: "workflow/config.yaml"
-
+# no default configfile: always pass one explicitly, e.g.
+# --configfile workflow/config.jz.yaml
 RESULT_ROOT = Path("results/scaling")
 
 
@@ -86,12 +86,7 @@ rule slurm_script:
 
 set -euo pipefail
 
-export OMP_NUM_THREADS={config['environment']['omp_num_threads']}
-export VEROS_ASSET_DIR={shlex.quote(config['environment']['veros_asset_dir'])}
-export HOME={shlex.quote(config['environment']['home'])}
-
-source {shlex.quote(config['environment']['conda_sh'])}
-conda activate {shlex.quote(config['environment']['conda_env'])}
+{config['environment']['init'].strip()}
 
 cd {shlex.quote(str(repo_root))}
 mkdir -p {shlex.quote(params.output_dir)}

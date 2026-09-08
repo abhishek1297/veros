@@ -7,11 +7,15 @@ profiler_args: "--trace=cuda,nvtx --sample=none"
 timesteps: 3
 repetitions: 1
 
+environment:
+  init: |
+    conda activate veros
+
 strong:
-  size: [90, 40, 15]
+  size: [180, 80, 20]
 
 weak:
-  local_size: [90, 40, 15]
+  local_size: [180, 80, 20]
 
 # single local GPU: only a 1-node/1-GPU case makes sense here
 topologies:

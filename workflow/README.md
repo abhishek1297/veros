@@ -1,19 +1,26 @@
 # CUDA scaling workflow
 
 This workflow creates one Slurm script for every `global_flexible` strong- and
-weak-scaling case in the node/GPU topology matrix in `config.yaml`. It does not
-submit or run the cases automatically.
+weak-scaling case in the node/GPU topology matrix in a config file. There is no
+default config -- always pass one explicitly with `--configfile`, since setup
+differs per cluster:
+
+- `config.odyssey.yaml` -- Odyssey cluster, Conda environment, `mpirun`.
+- `config.jz.yaml` -- Jean Zay cluster, modules + venv, `srun`.
+- `config.local.yaml` -- single local GPU, Conda environment, `mpirun`.
+
+It does not submit or run the cases automatically.
 
 ## Run
 
 Generate all Slurm scripts with:
 
 ```bash
-snakemake --snakefile workflow/Snakefile --cores 1 --printshellcmds
+snakemake --snakefile workflow/Snakefile --configfile workflow/config.jz.yaml --cores 1 --printshellcmds
 ```
 
-The scripts are written to `results/scaling/jobs/`. After loading the required
-environment and modules, submit the desired cases manually, for example:
+The scripts are written to `results/scaling/jobs/`. Submit the desired cases
+manually, for example:
 
 ```bash
 sbatch results/scaling/jobs/strong-nodes2-gpus4.slurm
@@ -22,26 +29,27 @@ sbatch results/scaling/jobs/strong-nodes2-gpus4.slurm
 For a dry run:
 
 ```bash
-snakemake --snakefile workflow/Snakefile --cores 1 -n -p
+snakemake --snakefile workflow/Snakefile --configfile workflow/config.jz.yaml --cores 1 -n -p
 ```
 
-Edit `config.yaml` before generating the scripts to change dimensions,
-timesteps, topology, Nsight options, or the setup file. Each generated script
-contains the matching `#SBATCH` node, task, and GPU directives. Add any
+Edit the relevant config file before generating the scripts to change
+dimensions, timesteps, topology, Nsight options, or the setup file. Each
+generated script contains the matching `#SBATCH` node, task, and GPU
+directives, plus the cluster's `environment.init` block verbatim (module
+loads, Conda/venv activation, exported env vars). Add any further
 site-specific directives such as account, partition, or walltime before
 submitting if your cluster requires them.
 
-The generated jobs activate the configured Conda environment and launch with
-`mpirun`. Each rank selects a GPU from `OMPI_COMM_WORLD_LOCAL_RANK`, while
-`OMPI_COMM_WORLD_RANK` is used in per-rank Nsight report names. The environment
-and installation paths are configured in `config.yaml`.
+The generated jobs launch with the configured `launcher` (`mpirun` or `srun`).
+Each rank selects a GPU from `OMPI_COMM_WORLD_LOCAL_RANK`, while `rank_env` is
+used in per-rank Nsight report names.
 
 ## Plots
 
 Once every submitted case has completed, generate the plot with:
 
 ```bash
-snakemake --snakefile workflow/Snakefile --cores 1 results/scaling/plots/scaling.png
+snakemake --snakefile workflow/Snakefile --configfile workflow/config.jz.yaml --cores 1 results/scaling/plots/scaling.png
 ```
 
 The generated `results/scaling/plots/scaling.png` contains:
