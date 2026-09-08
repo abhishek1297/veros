@@ -9,6 +9,7 @@ repetitions: 1
 
 environment:
   init: |
+    source $HOME/anaconda3/etc/profile.d/conda.sh
     conda activate veros
 
 strong:
