@@ -1,11 +1,18 @@
 setup_file: veros/setups/global_flexible/global_flexible.py
 
-launcher: srun
-rank_env: SLURM_PROCID
+launcher: mpirun
+rank_env: OMPI_COMM_WORLD_RANK
 profiler: nsys
 profiler_args: "--trace=cuda,mpi,nvtx --sample=none"
 timesteps: 5
 repetitions: 1
+
+environment:
+  omp_num_threads: 1
+  veros_asset_dir: /Odyssey/private/e25cheve/veros/veros_assets
+  home: /Odyssey/private/e25cheve/
+  conda_sh: /Odyssey/private/e25cheve/miniconda3/etc/profile.d/conda.sh
+  conda_env: /Odyssey/private/e25cheve/miniconda3/envs/veros
 
 strong:
   size: [180, 80, 20]

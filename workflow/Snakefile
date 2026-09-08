@@ -41,12 +41,12 @@ rule slurm_script:
             if wildcards.mode == "strong"
             else "--local-size " + " ".join(map(str, config["weak"]["local_size"]))
         ),
-        topology_args="--gpu-bind=closest",
         output_dir=lambda wildcards: str(
             RESULT_ROOT / wildcards.mode / f"nodes{wildcards.nodes}-gpus{wildcards.gpus}"
         ),
     run:
         ranks = int(wildcards.nodes) * int(wildcards.gpus)
+        repo_root = Path.cwd().resolve()
         command = [
             "python", "tools/cuda_scaling.py",
             "--mode", wildcards.mode,
@@ -54,13 +54,21 @@ rule slurm_script:
             "--timesteps", str(config["timesteps"]),
             "--repetitions", str(config["repetitions"]),
             "--launcher", config["launcher"],
-            "--launcher-args", params.topology_args,
             "--rank-env", config["rank_env"],
             "--profiler", config["profiler"],
-            "--profiler-args", config["profiler_args"],
+            f"--profiler-args={config['profiler_args']}",
             "--output-dir", params.output_dir,
             *shlex.split(params.size_args),
             "--",
+            "bash", "-c",
+            (
+                "export CUDA_VISIBLE_DEVICES=$OMPI_COMM_WORLD_LOCAL_RANK; "
+                "echo \"MPI rank=$OMPI_COMM_WORLD_RANK "
+                "local_rank=$OMPI_COMM_WORLD_LOCAL_RANK "
+                "GPU=$CUDA_VISIBLE_DEVICES\"; "
+                "exec \"$@\""
+            ),
+            "veros-gpu-rank",
             "veros", "run", config["setup_file"],
             "-b", "jax", "--device", "gpu",
             "-n", "{px}", "{py}",
@@ -72,14 +80,20 @@ rule slurm_script:
 #SBATCH --job-name=veros-{wildcards.mode}-n{wildcards.nodes}-g{wildcards.gpus}
 #SBATCH --nodes={wildcards.nodes}
 #SBATCH --ntasks-per-node={wildcards.gpus}
-#SBATCH --gpus-per-task=1
+#SBATCH --gres=gpu:{wildcards.gpus}
 #SBATCH --output=results/scaling/jobs/%x-%j.out
 #SBATCH --error=results/scaling/jobs/%x-%j.err
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${{BASH_SOURCE[0]}}")/../../.." && pwd)"
-cd "$repo_root"
+export OMP_NUM_THREADS={config['environment']['omp_num_threads']}
+export VEROS_ASSET_DIR={shlex.quote(config['environment']['veros_asset_dir'])}
+export HOME={shlex.quote(config['environment']['home'])}
+
+source {shlex.quote(config['environment']['conda_sh'])}
+conda activate {shlex.quote(config['environment']['conda_env'])}
+
+cd {shlex.quote(str(repo_root))}
 mkdir -p {shlex.quote(params.output_dir)}
 
 {shlex.join(command)}

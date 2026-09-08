@@ -31,9 +31,10 @@ contains the matching `#SBATCH` node, task, and GPU directives. Add any
 site-specific directives such as account, partition, or walltime before
 submitting if your cluster requires them.
 
-The workflow uses `SLURM_PROCID` for per-rank Nsight report names and requests
-one GPU per task with `--gpu-bind=closest`. Adapt those settings if the site
-uses a different scheduler or MPI launcher.
+The generated jobs activate the configured Conda environment and launch with
+`mpirun`. Each rank selects a GPU from `OMPI_COMM_WORLD_LOCAL_RANK`, while
+`OMPI_COMM_WORLD_RANK` is used in per-rank Nsight report names. The environment
+and installation paths are configured in `config.yaml`.
 
 ## Plots
 
