@@ -1,16 +1,22 @@
 # CUDA scaling workflow
 
-This workflow runs `global_flexible` strong- and weak-scaling cases over the
-node/GPU topology matrix in `config.yaml`. It launches one `srun` allocation
-per case and records timing metadata under `results/scaling/`.
+This workflow creates one Slurm script for every `global_flexible` strong- and
+weak-scaling case in the node/GPU topology matrix in `config.yaml`. It does not
+submit or run the cases automatically.
 
 ## Run
 
-Load the environment, MPI, CUDA, and MPI-enabled HDF5 modules first. Then run
-one case at a time from an allocated Slurm job:
+Generate all Slurm scripts with:
 
 ```bash
 snakemake --snakefile workflow/Snakefile --cores 1 --printshellcmds
+```
+
+The scripts are written to `results/scaling/jobs/`. After loading the required
+environment and modules, submit the desired cases manually, for example:
+
+```bash
+sbatch results/scaling/jobs/strong-nodes2-gpus4.slurm
 ```
 
 For a dry run:
@@ -19,15 +25,23 @@ For a dry run:
 snakemake --snakefile workflow/Snakefile --cores 1 -n -p
 ```
 
-Edit `config.yaml` before launching to change dimensions, timesteps, topology,
-Nsight options, or the setup file. Keep `--cores 1` unless the cluster profile
-is configured to submit independent jobs; each rule invokes `srun` itself.
+Edit `config.yaml` before generating the scripts to change dimensions,
+timesteps, topology, Nsight options, or the setup file. Each generated script
+contains the matching `#SBATCH` node, task, and GPU directives. Add any
+site-specific directives such as account, partition, or walltime before
+submitting if your cluster requires them.
 
 The workflow uses `SLURM_PROCID` for per-rank Nsight report names and requests
 one GPU per task with `--gpu-bind=closest`. Adapt those settings if the site
 uses a different scheduler or MPI launcher.
 
 ## Plots
+
+Once every submitted case has completed, generate the plot with:
+
+```bash
+snakemake --snakefile workflow/Snakefile --cores 1 results/scaling/plots/scaling.png
+```
 
 The generated `results/scaling/plots/scaling.png` contains:
 

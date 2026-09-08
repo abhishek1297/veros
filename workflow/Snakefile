@@ -1,3 +1,5 @@
+import os
+import shlex
 from pathlib import Path
 
 configfile: "workflow/config.yaml"
@@ -17,58 +19,73 @@ def result_files():
     ]
 
 
+def slurm_scripts():
+    return [
+        str(RESULT_ROOT / "jobs" / f"{mode}-nodes{nodes}-gpus{gpus}.slurm")
+        for mode in ("strong", "weak")
+        for nodes, gpus in topologies()
+    ]
+
+
 rule all:
     input:
-        result_files(),
-        "results/scaling/plots/scaling.png",
+        slurm_scripts(),
 
 
-rule scaling:
+rule slurm_script:
     output:
-        json=RESULT_ROOT / "{mode}" / "nodes{nodes}-gpus{gpus}" / "scaling.json",
-    threads: 1
-    resources:
-        # These are scheduler hints; use --default-resources or a cluster profile
-        # to map them to your site's Snakemake submission command.
-        nodes=lambda wildcards: int(wildcards.nodes),
-        gpus=lambda wildcards: int(wildcards.gpus),
+        script=RESULT_ROOT / "jobs" / "{mode}-nodes{nodes}-gpus{gpus}.slurm",
     params:
         size_args=lambda wildcards: (
             "--size " + " ".join(map(str, config["strong"]["size"]))
             if wildcards.mode == "strong"
             else "--local-size " + " ".join(map(str, config["weak"]["local_size"]))
         ),
-        topology_args=lambda wildcards: (
-            f"--nodes {wildcards.nodes} --ntasks-per-node {wildcards.gpus} "
-            "--gpus-per-task=1 --gpu-bind=closest"
-        ),
+        topology_args="--gpu-bind=closest",
         output_dir=lambda wildcards: str(
             RESULT_ROOT / wildcards.mode / f"nodes{wildcards.nodes}-gpus{wildcards.gpus}"
         ),
-    shell:
-        r"""
-        mkdir -p "$(dirname '{output.json}')"
-        ranks=$(( {wildcards.nodes} * {wildcards.gpus} ))
-        python tools/cuda_scaling.py \
-            --mode {wildcards.mode} \
-            --ranks "$ranks" \
-            --timesteps {config[timesteps]} \
-            --repetitions {config[repetitions]} \
-            --launcher {config[launcher]} \
-            --launcher-args "{params.topology_args}" \
-            --rank-env {config[rank_env]} \
-            --profiler {config[profiler]} \
-            --profiler-args '{config[profiler_args]}' \
-            --output-dir "{params.output_dir}" \
-            {params.size_args} \
-            -- \
-            veros run {config[setup_file]} \
-                -b jax --device gpu \
-                -n {{px}} {{py}} \
-                -s nx {{nx}} -s ny {{ny}} -s nz {{nz}} \
-                -s runlen $(({config[timesteps]} * 900)) \
-                --diskless-mode
-        """
+    run:
+        ranks = int(wildcards.nodes) * int(wildcards.gpus)
+        command = [
+            "python", "tools/cuda_scaling.py",
+            "--mode", wildcards.mode,
+            "--ranks", str(ranks),
+            "--timesteps", str(config["timesteps"]),
+            "--repetitions", str(config["repetitions"]),
+            "--launcher", config["launcher"],
+            "--launcher-args", params.topology_args,
+            "--rank-env", config["rank_env"],
+            "--profiler", config["profiler"],
+            "--profiler-args", config["profiler_args"],
+            "--output-dir", params.output_dir,
+            *shlex.split(params.size_args),
+            "--",
+            "veros", "run", config["setup_file"],
+            "-b", "jax", "--device", "gpu",
+            "-n", "{px}", "{py}",
+            "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
+            "-s", "runlen", str(config["timesteps"] * 900),
+            "--diskless-mode",
+        ]
+        script = f"""#!/bin/bash
+#SBATCH --job-name=veros-{wildcards.mode}-n{wildcards.nodes}-g{wildcards.gpus}
+#SBATCH --nodes={wildcards.nodes}
+#SBATCH --ntasks-per-node={wildcards.gpus}
+#SBATCH --gpus-per-task=1
+#SBATCH --output=results/scaling/jobs/%x-%j.out
+#SBATCH --error=results/scaling/jobs/%x-%j.err
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${{BASH_SOURCE[0]}}")/../../.." && pwd)"
+cd "$repo_root"
+mkdir -p {shlex.quote(params.output_dir)}
+
+{shlex.join(command)}
+"""
+        Path(output.script).write_text(script)
+        os.chmod(output.script, 0o755)
 
 
 rule plot:
