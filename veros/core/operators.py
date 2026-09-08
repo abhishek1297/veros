@@ -168,15 +168,24 @@ def update_multiply_jax(arr, at, to):
     return arr.at[at].multiply(to)
 
 
-def flush_jax():
+def flush_jax(x=None):
+    """Blocks until previously dispatched JAX work is done.
+
+    If ``x`` is given, blocks on its actual buffers via ``block_until_ready``,
+    which is more reliable than fencing with an unrelated dummy op. Falls back
+    to a dummy op when no target is given (e.g. to drain the queue before
+    starting a timer).
+    """
     import jax
 
-    dummy = jax.device_put(0.0) + 0.0
-    try:
-        dummy.block_until_ready()
-    except AttributeError:
-        # if we are jitting, dummy is not a DeviceArray that we can wait for
-        pass
+    if x is None:
+        x = jax.device_put(0.0) + 0.0
+
+    if hasattr(jax, "block_until_ready"):
+        jax.block_until_ready(x)
+    else:
+        # older jax releases don't expose the top-level helper
+        jax.tree_util.tree_map(lambda leaf: getattr(leaf, "block_until_ready", lambda: leaf)(), x)
 
 
 numpy = runtime_state.backend_module

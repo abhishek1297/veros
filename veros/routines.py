@@ -218,7 +218,7 @@ class VerosRoutine:
                     veros_state._variables._scatter_variables()
                     veros_state._variables = orig_vars
 
-                flush()
+                flush(veros_state._variables)
 
         if out is not None:
             logger.warning(
@@ -348,7 +348,7 @@ class VerosKernel:
                 out = self.function(*args)
 
                 if runtime_settings.profile_mode:
-                    flush()
+                    flush(out)
 
         return out
 

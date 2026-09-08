@@ -8,16 +8,33 @@ from veros import logger, runtime_settings, runtime_state
 def threaded_io(filepath, mode):
     """
     If using IO threads, start a new thread to write the HDF5 data to disk.
-    """
-    import h5py
 
+    Falls back to a numpy-based restart format if h5py is not installed.
+    Only supported for single-process runs.
+    """
     if runtime_settings.use_io_threads:
         _wait_for_disk(filepath)
         _io_locks[filepath].clear()
-    kwargs = {}
-    if runtime_state.proc_num > 1:
-        kwargs.update(driver="mpio", comm=runtime_settings.mpi_comm)
-    h5file = h5py.File(filepath, mode, **kwargs)
+
+    try:
+        import h5py
+    except ImportError:
+        if runtime_state.proc_num > 1:
+            raise RuntimeError(
+                "h5py is required for restart files when running on more than one process"
+            ) from None
+
+        from veros import logger
+        from veros.io_tools.npz_backend import NpzFile
+
+        logger.warning(f"h5py not found, falling back to numpy-based restart format for {filepath}")
+        h5file = NpzFile(filepath, mode)
+    else:
+        kwargs = {}
+        if runtime_state.proc_num > 1:
+            kwargs.update(driver="mpio", comm=runtime_settings.mpi_comm)
+        h5file = h5py.File(filepath, mode, **kwargs)
+
     try:
         yield h5file
     finally:

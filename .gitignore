@@ -111,8 +111,13 @@ ENV/
 .vscode/
 
 # stdout/err
-.std
-# extras
-results
-.snakemake
-cuda-scaling-results
+.std/
+
+# Snakemake scaling workflow output
+.snakemake/
+results/
+cuda-scaling-results/
+*.nsys-rep
+*.qdstrm
+*.ncu-rep
+*.sqlite
