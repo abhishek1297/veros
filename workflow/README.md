@@ -61,3 +61,23 @@ Useful additional plots from Nsight data are GPU utilization versus time,
 CUDA kernel duration by routine, MPI wait time versus compute time, and setup
 versus steady-state timestep time. Do not use Nsight-instrumented elapsed time
 as the final scaling number; use it to explain the non-profiled timing results.
+
+
+## Local test
+
+```bash
+# 1. Dry-run against the local config (1 node, 1 GPU, mpirun instead of srun)
+snakemake --snakefile workflow/Snakefile --configfile workflow/config.local.yaml --cores 1 -n -p
+
+# 2. Generate the runnable scripts (writes results/scaling/jobs/*.slurm)
+snakemake --snakefile workflow/Snakefile --configfile workflow/config.local.yaml --cores 1 -p
+
+# 3. Run them directly with bash — the #SBATCH lines are just comments locally
+bash results/scaling/jobs/strong-nodes1-gpus1.slurm
+bash results/scaling/jobs/weak-nodes1-gpus1.slurm
+
+# 4. Plot the results
+python tools/plot_scaling.py \
+  --input-glob 'results/scaling/*/nodes1-gpus1/scaling.json' \
+  --output results/scaling/plots/scaling.png
+```

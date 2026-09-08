@@ -1,0 +1,19 @@
+setup_file: veros/setups/global_flexible/global_flexible.py
+
+launcher: mpirun
+rank_env: OMPI_COMM_WORLD_RANK
+profiler: nsys
+profiler_args: "--trace=cuda,nvtx --sample=none"
+timesteps: 3
+repetitions: 1
+
+strong:
+  size: [90, 40, 15]
+
+weak:
+  local_size: [90, 40, 15]
+
+# single local GPU: only a 1-node/1-GPU case makes sense here
+topologies:
+  - nodes: 1
+    gpus_per_node: 1
