@@ -5,6 +5,9 @@ installed. Only implements the small subset of the ``h5py.File`` API used by
 :mod:`veros.restart`, and only supports single-process runs.
 """
 
+import contextlib
+from types import SimpleNamespace
+
 import numpy as np
 
 _DATA_MARKER = "data"
@@ -67,3 +70,27 @@ class NpzFile:
 
         with open(self.filepath, "wb") as f:
             np.savez(f, **payload)
+
+
+class NpzVariableAccessor:
+    """Exposes an .npz archive with the same ``.variables[name][idx]`` access
+    pattern used for h5netcdf datasets."""
+
+    __slots__ = ("_archive",)
+
+    def __init__(self, archive):
+        self._archive = archive
+
+    def __getitem__(self, name):
+        return self._archive[name]
+
+
+@contextlib.contextmanager
+def open_npz_dataset(filepath):
+    """Read-only, dependency-free stand-in for h5netcdf.File(filepath, "r").
+
+    Only supports plain ``dataset.variables[name][idx]`` access, which is all
+    that veros' HDF5-backed setups need for reading forcing/topography data.
+    """
+    with np.load(filepath) as archive:
+        yield SimpleNamespace(variables=NpzVariableAccessor(archive))

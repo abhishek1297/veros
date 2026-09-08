@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import h5netcdf
 import scipy.ndimage
 
 from veros import veros_routine, veros_kernel, KernelOutput, VerosSetup, runtime_settings as rs, runtime_state as rst
@@ -11,8 +10,18 @@ from veros.core.operators import numpy as npx, update, at
 import veros.tools
 import veros.time
 
+try:
+    import h5netcdf
+except ImportError:
+    h5netcdf = None
+
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_FILES = veros.tools.get_assets("global_flexible", os.path.join(BASE_PATH, "assets.json"))
+
+
+def _npz_path(path):
+    """Path of the pre-converted numpy fallback for an HDF5 asset."""
+    return os.path.splitext(path)[0] + ".npz"
 
 
 class GlobalFlexibleResolutionSetup(VerosSetup):
@@ -112,14 +121,21 @@ class GlobalFlexibleResolutionSetup(VerosSetup):
         else:
             idx = idx[::-1]
 
-        kwargs = {}
-        if rst.proc_num > 1:
-            kwargs.update(
-                driver="mpio",
-                comm=rs.mpi_comm,
-            )
+        if h5netcdf is not None:
+            kwargs = {}
+            if rst.proc_num > 1:
+                kwargs.update(
+                    driver="mpio",
+                    comm=rs.mpi_comm,
+                )
 
-        with h5netcdf.File(DATA_FILES["forcing"], "r", **kwargs) as forcing_file:
+            with h5netcdf.File(DATA_FILES["forcing"], "r", **kwargs) as forcing_file:
+                var_obj = forcing_file.variables[var]
+                return npx.array(var_obj[idx]).T
+
+        from veros.io_tools.npz_backend import open_npz_dataset
+
+        with open_npz_dataset(_npz_path(DATA_FILES["forcing"])) as forcing_file:
             var_obj = forcing_file.variables[var]
             return npx.array(var_obj[idx]).T
 
@@ -171,8 +187,18 @@ class GlobalFlexibleResolutionSetup(VerosSetup):
         vs = state.variables
         settings = state.settings
 
-        with h5netcdf.File(DATA_FILES["topography"], "r") as topography_file:
-            topo_x, topo_y, topo_z = (npx.array(topography_file.variables[k], dtype="float").T for k in ("x", "y", "z"))
+        if h5netcdf is not None:
+            with h5netcdf.File(DATA_FILES["topography"], "r") as topography_file:
+                topo_x, topo_y, topo_z = (
+                    npx.array(topography_file.variables[k], dtype="float").T for k in ("x", "y", "z")
+                )
+        else:
+            from veros.io_tools.npz_backend import open_npz_dataset
+
+            with open_npz_dataset(_npz_path(DATA_FILES["topography"])) as topography_file:
+                topo_x, topo_y, topo_z = (
+                    npx.array(topography_file.variables[k], dtype="float").T for k in ("x", "y", "z")
+                )
 
         topo_z = npx.minimum(topo_z, 0.0)
 
