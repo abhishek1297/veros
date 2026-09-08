@@ -14,9 +14,15 @@ module load pytorch-gpu/py3/2.13.0
 source .venv/bin/activate
 export MPI4JAX_USE_CUDA_MPI=1
 export XLA_PYTHON_CLIENT_PREALLOCATE="false"
-# workaround for a CUDA-IPC/UCX segfault seen on this cluster; remove once
-# openmpi/4.1.8-cuda and jax's local CUDA toolkit are confirmed to match
-export UCX_TLS=^cuda_ipc
+
+# Segfault workaround: without opal_cuda_support, Open MPI/UCX can mishandle
+# GPU pointers; without disabling the memtype cache, it can go stale against
+# XLA's own pooled CUDA allocator and touch memory as the wrong type.
+export OMPI_MCA_opal_cuda_support=1
+export UCX_TLS=rc,cuda_copy,cuda_ipc,sm
+export UCX_MEMTYPE_CACHE=n
+# if this still segfaults, try disabling GPU-direct MPI entirely instead:
+#   export MPI4JAX_USE_CUDA_MPI=0
 
 echo "VEROS Asset Dir: $VEROS_ASSET_DIR"
 echo "Active Python: $(which python3)"
