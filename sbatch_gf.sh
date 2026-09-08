@@ -4,7 +4,7 @@
 #SBATCH --output=.std/veros.out
 #SBATCH --error=.std/veros.err
 #SBATCH --account=yah@h100
-#SBATCH --ntasks=1 -C h100 --gres=gpu:1 --qos=qos_gpu_h100-dev
+#SBATCH --ntasks=2 -C h100 --gres=gpu:2 --qos=qos_gpu_h100-dev
 #SBATCH --time=00:05:00
 
 module purge
@@ -20,4 +20,5 @@ echo "Active Python: $(which python3)"
 echo "Active Veros Path: $(which veros 2>/dev/null || echo 'Not found in PATH')"
 
 nvidia-smi
-srun veros run veros/setups/global_flexible/global_flexible.py --backend jax --device gpu 
+srun veros run veros/setups/global_flexible/global_flexible.py --backend jax --device gpu -n 1 2 --diskless-mode
+ 
