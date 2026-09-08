@@ -16,7 +16,18 @@ source .venv/bin/activate
 
 python3 -m pip install -U --no-cache-dir pip
 python3 -m pip install --no-cache-dir setuptools wheel cython
-python3 -m pip install --no-cache-dir --no-binary mpi4py \
-        -r requirements.txt -r requirements_jax.txt 2>/dev/null || true
+
+# mpi4jax's CUDA bridge must be built against the same local CUDA toolkit
+# that jax[cuda13-local] uses at runtime, or GPU-direct MPI can segfault
+# with a CUDA-runtime ABI mismatch. See mpi4jax's README ("jax[cudaXX_local]").
+export CUDA_ROOT="${CUDA_ROOT:-$CUDA_HOME}"
+if [ -z "$CUDA_ROOT" ]; then
+    echo "CUDA_ROOT/CUDA_HOME not set by the loaded modules -- find it with" \
+         "'module show cuda/13.2.1' and export it before running this script" >&2
+    exit 1
+fi
+
+python3 -m pip install --no-cache-dir --no-binary mpi4py,mpi4jax \
+        -r requirements.txt -r requirements_jax.txt
 python3 -m pip install --no-cache-dir --no-build-isolation --no-deps -e .
 
