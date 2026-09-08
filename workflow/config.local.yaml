@@ -3,7 +3,7 @@ setup_file: veros/setups/global_flexible/global_flexible.py
 launcher: mpirun
 rank_env: OMPI_COMM_WORLD_RANK
 profiler: nsys
-profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=false --cuda-graph-trace=node"
+profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=true --cuda-graph-trace=node"
 timesteps: 3
 repetitions: 1
 

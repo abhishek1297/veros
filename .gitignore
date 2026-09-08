@@ -121,3 +121,6 @@ cuda-scaling-results/
 *.qdstrm
 *.ncu-rep
 *.sqlite
+
+# singularity
+*.sif

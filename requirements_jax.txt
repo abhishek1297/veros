@@ -1,4 +1,4 @@
 jax[cuda13-local]==0.11.1
 mpi4py
 mpi4jax
-
+nanobind

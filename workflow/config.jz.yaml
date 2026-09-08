@@ -1,32 +1,21 @@
-setup_file: veros/setups/global_flexible/global_flexible.py
+setup_file: /workspace/veros/veros/setups/global_flexible/global_flexible.py
 
 launcher: srun
 rank_env: SLURM_PROCID
 profiler: nsys
-profiler_args: "--trace=cuda,nvtx --sample=none"
+profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=true --cuda-graph-trace=node"
 timesteps: 5
 repetitions: 1
+
+container_image: $SINGULARITY_ALLOWED_DIR/veros.sif
 
 environment:
   init: |
     module purge
     module load arch/h100
-    module load pytorch-gpu/py3/2.13.0
-
-    source .venv/bin/activate
 
     export MPI4JAX_USE_CUDA_MPI=1
     export XLA_PYTHON_CLIENT_PREALLOCATE="false"
-
-    # Segfault workaround: without opal_cuda_support, Open MPI/UCX can mishandle
-    # GPU pointers; without disabling the memtype cache, it can go stale against
-    # XLA's own pooled CUDA allocator and touch memory as the wrong type.
-    export OMPI_MCA_opal_cuda_support=1
-    export UCX_TLS=rc,cuda_copy,cuda_ipc,sm
-    export UCX_MEMTYPE_CACHE=n
-    # if this still segfaults, try disabling GPU-direct MPI entirely instead:
-    #   export MPI4JAX_USE_CUDA_MPI=0
-    # TODO: set to the actual asset directory on this cluster
     export VEROS_ASSET_DIR=/lustre/fswork/projects/rech/yah/uyl42ho/veros_assets
 
 strong:
@@ -35,17 +24,16 @@ strong:
 weak:
   local_size: [90, 40, 20]
 
-# Every nodes x gpus_per_node pair is run for both scaling modes.
 topologies:
   - nodes: 1
     gpus_per_node: 1
-  - nodes: 1
-    gpus_per_node: 2
-  - nodes: 1
-    gpus_per_node: 4
-  - nodes: 2
-    gpus_per_node: 4
-  - nodes: 3
-    gpus_per_node: 4
-  - nodes: 4
-    gpus_per_node: 4
+  # - nodes: 1
+  #   gpus_per_node: 2
+  # - nodes: 1
+  #   gpus_per_node: 4
+  # - nodes: 2
+  #   gpus_per_node: 4
+  # - nodes: 3
+  #   gpus_per_node: 4
+  # - nodes: 4
+  #   gpus_per_node: 4
