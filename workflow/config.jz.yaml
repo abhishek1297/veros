@@ -2,6 +2,8 @@ setup_file: /workspace/veros/veros/setups/global_flexible/global_flexible.py
 
 launcher: srun
 rank_env: SLURM_PROCID
+local_rank_env: SLURM_LOCALID
+memory_sample_interval: 5
 profiler: nsys
 profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=true --cuda-graph-trace=node"
 timesteps: 5

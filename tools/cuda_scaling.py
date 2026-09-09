@@ -21,6 +21,7 @@ import math
 import os
 import shlex
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -64,6 +65,17 @@ def build_parser():
         default="OMPI_COMM_WORLD_RANK",
         help="MPI rank environment variable used in Nsight report names",
     )
+    parser.add_argument(
+        "--local-rank-env",
+        default="OMPI_COMM_WORLD_LOCAL_RANK",
+        help="MPI local-rank environment variable used to select the GPU to monitor",
+    )
+    parser.add_argument(
+        "--memory-sample-interval",
+        type=float,
+        default=5.0,
+        help="Seconds between per-GPU memory samples; set to 0 to disable",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("cuda-scaling-results"))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER, help="Program template, preceded by --")
@@ -77,6 +89,8 @@ def validate_args(args):
         raise ValueError("--local-size is required for weak scaling")
     if args.repetitions < 1 or args.timesteps < 1:
         raise ValueError("--repetitions and --timesteps must be positive")
+    if args.memory_sample_interval < 0:
+        raise ValueError("--memory-sample-interval must be non-negative")
     if not args.command or args.command[0] != "--":
         raise ValueError("the program template must follow --")
 
@@ -102,6 +116,19 @@ def command_for_run(args, ranks, repeat, output_dir):
         program = [part.format(**values) for part in args.command[1:]]
     except KeyError as exc:
         raise ValueError(f"unknown command placeholder: {exc.args[0]}") from None
+
+    if args.memory_sample_interval:
+        monitor = Path(__file__).with_name("gpu_memory_monitor.py").resolve()
+        output_prefix = output_dir / f"gpu-memory-repeat{repeat}-rank"
+        rank_expression = f'"${{{args.rank_env}:-0}}"'
+        monitor_command = (
+            f"exec {shlex.quote(sys.executable)} {shlex.quote(str(monitor))} "
+            f"--output {shlex.quote(str(output_prefix))}-{rank_expression}.json "
+            f"--interval {args.memory_sample_interval} "
+            f"--rank-env {shlex.quote(args.rank_env)} "
+            f"--local-rank-env {shlex.quote(args.local_rank_env)} -- \"$@\""
+        )
+        program = ["sh", "-c", monitor_command, "veros-memory-monitor", *program]
 
     command = shlex.split(args.launcher) + shlex.split(args.launcher_args) + ["-n", str(ranks)]
     if args.profiler == "nsys":
@@ -139,7 +166,19 @@ def main():
             start = time.perf_counter()
             completed = subprocess.run(command, check=False, env=os.environ.copy())
             elapsed = time.perf_counter() - start
-            result = {"repeat": repeat, "returncode": completed.returncode, "elapsed_seconds": elapsed, **values}
+            memory_samples = []
+            for memory_file in sorted(args.output_dir.glob(f"gpu-memory-repeat{repeat}-rank*.json")):
+                payload = json.loads(memory_file.read_text())
+                if payload.get("rank", ranks) < ranks:
+                    memory_samples.append(payload)
+            memory_samples.sort(key=lambda payload: payload["rank"])
+            result = {
+                "repeat": repeat,
+                "returncode": completed.returncode,
+                "elapsed_seconds": elapsed,
+                "gpu_memory_samples": memory_samples,
+                **values,
+            }
             results.append(result)
             if completed.returncode:
                 raise SystemExit(completed.returncode)
@@ -149,6 +188,7 @@ def main():
         "profiler": args.profiler,
         "launcher": args.launcher,
         "repetitions": args.repetitions,
+        "memory_sample_interval_seconds": args.memory_sample_interval,
         "results": results,
     }
     output_file = args.output_dir / "scaling.json"

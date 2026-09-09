@@ -41,8 +41,10 @@ site-specific directives such as account, partition, or walltime before
 submitting if your cluster requires them.
 
 The generated jobs launch with the configured `launcher` (`mpirun` or `srun`).
-Each rank selects a GPU from `OMPI_COMM_WORLD_LOCAL_RANK`, while `rank_env` is
-used in per-rank Nsight report names.
+Each rank selects a GPU using the configured `local_rank_env`, while `rank_env`
+is used in per-rank Nsight report names. GPU memory use is sampled every
+`memory_sample_interval` seconds (five by default) on every rank and embedded
+under `gpu_memory_samples` in the case's `scaling.json`.
 
 ## Plots
 

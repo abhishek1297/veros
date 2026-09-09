@@ -55,6 +55,8 @@ rule slurm_script:
             "--repetitions", str(config["repetitions"]),
             "--launcher", config["launcher"],
             "--rank-env", config["rank_env"],
+            "--local-rank-env", config["local_rank_env"],
+            "--memory-sample-interval", str(config.get("memory_sample_interval", 5)),
             "--profiler", config["profiler"],
             f"--profiler-args={config['profiler_args']}",
             "--output-dir", params.output_dir,
@@ -62,9 +64,9 @@ rule slurm_script:
             "--",
             "bash", "-c",
             (
-                "export CUDA_VISIBLE_DEVICES=$OMPI_COMM_WORLD_LOCAL_RANK; "
-                "echo \"MPI rank=$OMPI_COMM_WORLD_RANK "
-                "local_rank=$OMPI_COMM_WORLD_LOCAL_RANK "
+                f"export CUDA_VISIBLE_DEVICES=${config['local_rank_env']}; "
+                f"echo \"MPI rank=${config['rank_env']} "
+                f"local_rank=${config['local_rank_env']} "
                 "GPU=$CUDA_VISIBLE_DEVICES\"; "
                 "exec \"$@\""
             ),
