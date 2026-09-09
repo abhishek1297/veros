@@ -42,9 +42,9 @@ class GlobalFlexibleResolutionSetup(VerosSetup):
         settings.identifier = "global_flexible"
         settings.description = "Global model with flexible resolution"
 
-        settings.nx = 360
-        settings.ny = 160
-        settings.nz = 60
+        settings.nx = 720
+        settings.ny = 480
+        settings.nz = 80
         settings.dt_mom = settings.dt_tracer = 450
         settings.runlen = 86400 * 10
 

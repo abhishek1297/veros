@@ -154,7 +154,11 @@ def command_for_run(args, ranks, repeat, output_dir):
         rank_command = "; ".join(rank_setup + ['exec "$@"'])
         program = ["sh", "-c", rank_command, "veros-rank-profile", *program]
 
-    command = shlex.split(args.launcher) + shlex.split(args.launcher_args) + ["-n", str(ranks)]
+    launcher_cmds = shlex.split(args.launcher) + shlex.split(args.launcher_args)
+    if launcher_cmds and args.launcher != "none":
+        command = launcher_cmds + ["-n", str(ranks)]
+    else:
+        command = []
     if args.profiler == "nsys":
         report_prefix = output_dir / f"nsys-r{ranks}-repeat{repeat}-rank"
         profiler_args = shlex.join(shlex.split(args.profiler_args))

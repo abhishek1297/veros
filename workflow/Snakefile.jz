@@ -9,14 +9,6 @@ def topologies():
     return [(str(item["nodes"]), str(item["gpus_per_node"])) for item in config["topologies"]]
 
 
-def result_files():
-    return [
-        str(RESULT_ROOT / mode / f"nodes{nodes}-gpus{gpus}" / "scaling.json")
-        for mode in ("strong", "weak")
-        for nodes, gpus in topologies()
-    ]
-
-
 def slurm_scripts():
     return [
         str(RESULT_ROOT / "jobs" / f"{mode}-nodes{nodes}-gpus{gpus}.slurm")
@@ -48,55 +40,61 @@ rule slurm_script:
         asset_dir = os.getenv("VEROS_ASSET_DIR", "/lustre/fswork/projects/rech/yah/uyl42ho/veros_assets")
         scratch_tmp = f"{os.getenv('SCRATCH', '/tmp')}/veros_tmp"
 
+        inner_bash_script = f"""
+export CUDA_VISIBLE_DEVICES=${{SLURM_LOCALID:-0}}
+python tools/cuda_scaling.py \
+    --mode {wildcards.mode} \
+    --ranks {ranks} \
+    --timesteps {config['timesteps']} \
+    --repetitions {config['repetitions']} \
+    --launcher none \
+    --rank-env {config['rank_env']} \
+    --local-rank-env {config['local_rank_env']} \
+    --profiler {config['profiler']} \
+    {'--profiler-args=' + config['profiler_args'] if config.get('profiler_args') else '--profiler-args='} \
+    --output-dir {params.output_dir} \
+    {params.size_args} \
+    -- \
+    veros run {config['setup_file']} \
+    -b jax --device gpu \
+    -n {{px}} {{py}} \
+    -s nx {{nx}} -s ny {{ny}} -s nz {{nz}} \
+    -s runlen {config['timesteps'] * config['dt']} \
+    --diskless-mode
+""".strip()
+
         command = [
+            "srun", "--mpi=pmix_v3",
             "singularity", "exec", "--nv",
             "--env-file", f"{repo_root}/.jz_env",
             "--bind", f"{scratch_tmp}:{scratch_tmp}",
             "--bind", f"{repo_root}:/workspace/veros",
             "--bind", f"{asset_dir}:/veros_assets",
             os.path.expandvars(config["container_image"]),
-            "python", "tools/cuda_scaling.py",
-            "--mode", wildcards.mode,
-            "--ranks", str(ranks),
-            "--timesteps", str(config["timesteps"]),
-            "--repetitions", str(config["repetitions"]),
-            "--launcher", config["launcher"],
-            "--rank-env", config["rank_env"],
-            "--local-rank-env", config["local_rank_env"],
-            "--profiler", config["profiler"],
-            f"--profiler-args={config['profiler_args']}" if config.get('profiler_args') else "--profiler-args=",
-            "--output-dir", params.output_dir,
-            *shlex.split(params.size_args),
-            "--",
-            "/workspace/veros/tools/veros_rank_wrapper.sh",
-            "veros", "run", config["setup_file"],
-            "-b", "jax", "--device", "gpu",
-            "-n", "{px}", "{py}",
-            "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
-            "-s", "runlen", str(config["timesteps"] * config["dt"]),
-            "--diskless-mode",
+            "bash", "-c", inner_bash_script
         ]
+
+        init_env = config['environment']['init'].strip()
 
         script = f"""#!/bin/bash
 #SBATCH --job-name=veros-{wildcards.mode}-n{wildcards.nodes}-g{wildcards.gpus}
 #SBATCH --account=yah@h100
 #SBATCH -C h100
+#SBATCH --cpus-per-task=24 --hint=nomultithread
 #SBATCH --nodes={wildcards.nodes}
 #SBATCH --ntasks-per-node={wildcards.gpus}
 #SBATCH --gres=gpu:{wildcards.gpus}
-#SBATCH --mem=80G
 #SBATCH --output=results/scaling/jobs/%x-%j.out
 #SBATCH --error=results/scaling/jobs/%x-%j.err
 
 set -euo pipefail
 
-{config['environment']['init'].strip()}
+{init_env}
 
-export SINGULARITYENV_CUDA_COMPAT_UNLINK=0
-export SINGULARITYENV_OMPI_MCA_orte_keep_fqdn_hostnames=0
-export SINGULARITYENV_OMPI_MCA_btl=self,vader
 export TMPDIR="{scratch_tmp}"
 mkdir -p "$TMPDIR"
+
+nvidia-smi
 
 cd {shlex.quote(str(repo_root))}
 mkdir -p {shlex.quote(params.output_dir)}

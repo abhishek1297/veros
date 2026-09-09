@@ -1,8 +1,10 @@
 setup_file: /workspace/veros/veros/setups/global_flexible/global_flexible.py
 
-launcher: mpirun 
-rank_env: OMPI_COMM_WORLD_RANK
-local_rank_env: OMPI_COMM_WORLD_LOCAL_RANK
+# Empty launcher so python script executes the template directly per srun task
+launcher: ""
+rank_env: SLURM_PROCID
+local_rank_env: SLURM_LOCALID
+
 memory_sample_interval: 5
 communication_profile: true
 jax_trace: true
@@ -30,11 +32,11 @@ weak:
 topologies:
   - nodes: 1
     gpus_per_node: 1
-  # - nodes: 1
-  #   gpus_per_node: 2
-  # - nodes: 1
-  #   gpus_per_node: 4
-  # - nodes: 2
-  #   gpus_per_node: 4
-  # - nodes: 4
-  #   gpus_per_node: 4
+  - nodes: 1
+    gpus_per_node: 2
+  - nodes: 1
+    gpus_per_node: 4
+  - nodes: 2
+    gpus_per_node: 4
+  - nodes: 4
+    gpus_per_node: 4
