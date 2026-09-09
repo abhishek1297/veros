@@ -6,7 +6,7 @@ local_rank_env: SLURM_LOCALID
 memory_sample_interval: 5
 profiler: nsys
 profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=true --cuda-graph-trace=node"
-timesteps: 5
+timesteps: 100
 repetitions: 1
 
 container_image: $SINGULARITY_ALLOWED_DIR/veros.sif
@@ -21,7 +21,7 @@ environment:
     export VEROS_ASSET_DIR=/lustre/fswork/projects/rech/yah/uyl42ho/veros_assets
 
 strong:
-  size: [180, 80, 20]
+  size: [720, 420, 80]
 
 weak:
   local_size: [90, 40, 20]

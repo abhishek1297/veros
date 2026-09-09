@@ -8,8 +8,7 @@ From: nvcr.io/nvidia/jax:26.08-py3
     export LC_ALL=C
 
 %files
-    requirements.txt /workspace/veros/requirements.txt
-    requirements_jax.txt /workspace/veros/requirements_jax.txt
+    requirements_container.txt /workspace/veros/requirements.txt
     . /workspace/veros/
 
 %post
@@ -31,8 +30,9 @@ From: nvcr.io/nvidia/jax:26.08-py3
     python3 -m pip install -U --no-cache-dir pip setuptools wheel cython
 
     # Compile mpi4py and mpi4jax against container CUDA/MPI
-    python3 -m pip install --no-cache-dir --no-binary mpi4py,mpi4jax \
-        -r requirements.txt -r requirements_jax.txt
+    python3 -m pip install -v --no-cache-dir --no-build-isolation --no-binary mpi4py mpi4py nanobind
+    python3 -m pip install -v --no-cache-dir --no-build-isolation mpi4jax
+    python3 -m pip install -v --no-cache-dir -r requirements.txt
 
     # Install Veros
     python3 -m pip install --no-cache-dir --no-build-isolation --no-deps -e .

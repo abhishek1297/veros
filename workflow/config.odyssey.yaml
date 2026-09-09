@@ -12,6 +12,7 @@ repetitions: 1
 environment:
   init: |
     export OMP_NUM_THREADS=1
+    export MPI4JAX_USE_CUDA_MPI=1
     export VEROS_ASSET_DIR=/Odyssey/private/e25cheve/veros/veros_assets
     export HOME=/Odyssey/private/e25cheve/
 

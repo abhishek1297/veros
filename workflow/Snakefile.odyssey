@@ -2,6 +2,8 @@ import os
 import shlex
 from pathlib import Path
 
+# no default configfile: always pass one explicitly, e.g.
+# --configfile workflow/config.jz.yaml
 RESULT_ROOT = Path("results/scaling")
 
 
@@ -45,15 +47,7 @@ rule slurm_script:
     run:
         ranks = int(wildcards.nodes) * int(wildcards.gpus)
         repo_root = Path.cwd().resolve()
-        
-        asset_dir = os.getenv("VEROS_ASSET_DIR")
-
         command = [
-            "singularity", "exec", "--nv",
-            "--env-file", f"{repo_root}/.jz_env"
-            "--bind", f"{repo_root}:/workspace/veros",
-            "--bind", f"{asset_dir}:/veros_assets",
-            os.path.expandvars(config["container_image"]),
             "python", "tools/cuda_scaling.py",
             "--mode", wildcards.mode,
             "--ranks", str(ranks),
@@ -68,9 +62,11 @@ rule slurm_script:
             "--",
             "bash", "-c",
             (
-                'export CUDA_VISIBLE_DEVICES=${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-0}}; '
-                'echo "MPI rank=${SLURM_PROCID:-0} GPU=$CUDA_VISIBLE_DEVICES"; '
-                'exec "$@"'
+                "export CUDA_VISIBLE_DEVICES=$OMPI_COMM_WORLD_LOCAL_RANK; "
+                "echo \"MPI rank=$OMPI_COMM_WORLD_RANK "
+                "local_rank=$OMPI_COMM_WORLD_LOCAL_RANK "
+                "GPU=$CUDA_VISIBLE_DEVICES\"; "
+                "exec \"$@\""
             ),
             "veros-gpu-rank",
             "veros", "run", config["setup_file"],
@@ -80,14 +76,12 @@ rule slurm_script:
             "-s", "runlen", str(config["timesteps"] * 900),
             "--diskless-mode",
         ]
-
         script = f"""#!/bin/bash
+#SBATCH -p Odyssey_GPU --qos=high
 #SBATCH --job-name=veros-{wildcards.mode}-n{wildcards.nodes}-g{wildcards.gpus}
-#SBATCH --account=yah@h100
-#SBATCH -C h100
 #SBATCH --nodes={wildcards.nodes}
 #SBATCH --ntasks-per-node={wildcards.gpus}
-#SBATCH --gres=gpu:{wildcards.gpus}
+#SBATCH --gres=gpu:h100:{wildcards.gpus}
 #SBATCH --output=results/scaling/jobs/%x-%j.out
 #SBATCH --error=results/scaling/jobs/%x-%j.err
 
@@ -98,7 +92,7 @@ set -euo pipefail
 cd {shlex.quote(str(repo_root))}
 mkdir -p {shlex.quote(params.output_dir)}
 
-srun --mpi=pmi2 {shlex.join(command)}
+{shlex.join(command)}
 """
         Path(output.script).write_text(script)
         os.chmod(output.script, 0o755)

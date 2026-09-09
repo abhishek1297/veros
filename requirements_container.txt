@@ -1,0 +1,6 @@
+click==8.5.0
+entrypoints==0.4
+requests==2.34.2
+pillow==12.3.0
+loguru==0.7.3
+tqdm==4.70.0

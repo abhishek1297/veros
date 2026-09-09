@@ -15,9 +15,17 @@ It does not submit or run the cases automatically.
 
 Generate all Slurm scripts with:
 
+### Odyssey
+
 ```bash
-snakemake --snakefile workflow/Snakefile --configfile workflow/config.jz.yaml --cores 1 --printshellcmds
+snakemake --snakefile workflow/Snakefile.odyssey --configfile workflow/config.odyssey.yaml --cores 1 --printshellcmds
 ```
+
+### Jean-zay
+```bash
+snakemake --snakefile workflow/Snakefile.jz --configfile workflow/config.jz.yaml --cores 1 --printshellcmds
+```
+
 
 The scripts are written to `results/scaling/jobs/`. Submit the desired cases
 manually, for example:
