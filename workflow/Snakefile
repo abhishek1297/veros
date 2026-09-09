@@ -73,7 +73,7 @@ rule slurm_script:
                 "exec \"$@\""
             ),
             "veros-gpu-rank",
-            "veros", "run", config["setup_file"],
+            "python", "-m", "veros", "run", config["setup_file"],
             "-b", "jax", "--device", "gpu",
             "-n", "{px}", "{py}",
             "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",

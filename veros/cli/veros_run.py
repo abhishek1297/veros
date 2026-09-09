@@ -88,6 +88,7 @@ def run(setup_file, *args, **kwargs):
     if trace_dir and runtime_settings.backend == "jax":
         import jax
 
+        logger.info(f"Writing JAX/XProf trace to {trace_dir}")
         trace_context = jax.profiler.trace(trace_dir, create_perfetto_trace=True)
     else:
         trace_context = nullcontext()
@@ -95,6 +96,9 @@ def run(setup_file, *args, **kwargs):
     with trace_context:
         sim.setup()
         sim.run()
+
+    if trace_dir and runtime_settings.backend == "jax":
+        logger.info(f"JAX/XProf trace completed at {trace_dir}")
 
 
 @click.command("veros-run")

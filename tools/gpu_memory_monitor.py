@@ -58,7 +58,22 @@ def main():
     rank = int(os.environ.get(args.rank_env, 0))
     local_rank = int(os.environ.get(args.local_rank_env, 0))
     gpu_index = gpu_for_local_rank(local_rank)
+    warmup_file = os.environ.get("VEROS_WARMUP_DONE_FILE")
+    warmup_path = Path(warmup_file) if warmup_file else None
+    if warmup_path is not None:
+        warmup_path.unlink(missing_ok=True)
+
     process = subprocess.Popen(args.command[1:], env=os.environ.copy())
+
+    while warmup_path is not None and process.poll() is None and not warmup_path.exists():
+        try:
+            process.wait(timeout=0.1)
+        except subprocess.TimeoutExpired:
+            pass
+
+    if warmup_path is not None:
+        warmup_path.unlink(missing_ok=True)
+
     start = time.perf_counter()
     samples = []
     sampling_errors = []

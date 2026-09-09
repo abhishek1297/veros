@@ -133,6 +133,10 @@ def command_for_run(args, ranks, repeat, output_dir):
     if args.memory_sample_interval:
         monitor = Path(__file__).with_name("gpu_memory_monitor.py").resolve()
         output_prefix = output_dir / f"gpu-memory-repeat{repeat}-rank"
+        warmup_prefix = output_dir / f"warmup-complete-repeat{repeat}-rank"
+        rank_setup.append(
+            f"export VEROS_WARMUP_DONE_FILE={shlex.quote(str(warmup_prefix))}-{rank_expression}"
+        )
         monitor_command = "; ".join(
             rank_setup
             + [

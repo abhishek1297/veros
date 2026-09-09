@@ -46,17 +46,19 @@ bottom row shows weak scaling.
 
 ### GPU memory
 
-Memory is sampled every five seconds and reported in MiB per GPU. Each line is
-the mean across GPUs and repetitions; the shaded area spans the minimum and
-maximum sampled GPUs. A wide band suggests memory imbalance. A curve approaching
-the device capacity indicates an out-of-memory risk.
+After the first timestep has completed, memory is sampled every five seconds
+and reported in MiB per GPU. Each line is the mean across GPUs and repetitions;
+the shaded area spans the minimum and maximum sampled GPUs. A wide band suggests
+memory imbalance. A curve approaching the device capacity indicates an
+out-of-memory risk.
 
 ### GPU compute utilization
 
-Compute utilization is the percentage reported by `nvidia-smi`. Sustained high
+Compute utilization is recorded with memory, beginning after the first
+timestep, and is the percentage reported by `nvidia-smi`. Sustained high
 utilization generally indicates that GPUs remain busy. Low or highly variable
-utilization can indicate compilation, CPU dispatch delays, communication waits,
-I/O, synchronization, or a problem that is too small for the GPU.
+utilization can indicate CPU dispatch delays, communication waits, I/O,
+synchronization, or a problem that is too small for the GPU.
 
 This sampled utilization is a coarse signal rather than a kernel-efficiency
 measurement. Use XProf for the detailed device timeline.
@@ -95,7 +97,11 @@ results/scaling/<mode>/nodes<N>-gpus<G>/jax-traces/repeat<R>-rank<RANK>/
 ```
 
 The actual profile files are below the JAX-created `plugins/profile/`
-subdirectory. List all traces with:
+subdirectory. The Slurm log prints `Writing JAX/XProf trace to ...` and
+`JAX/XProf trace completed at ...` for every rank, making the exact output
+directory visible after each run.
+
+List all traces with:
 
 ```bash
 find results/scaling -path '*/jax-traces/*' -type f

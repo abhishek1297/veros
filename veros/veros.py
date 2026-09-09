@@ -360,6 +360,11 @@ class VerosSetup(metaclass=abc.ABCMeta):
 
                     if not timer_context.active:
                         timer_context.active = True
+                        warmup_file = os.environ.get("VEROS_WARMUP_DONE_FILE")
+                        if warmup_file:
+                            warmup_path = Path(warmup_file)
+                            warmup_path.parent.mkdir(parents=True, exist_ok=True)
+                            warmup_path.touch()
 
                     pbar.advance_time(settings.dt_tracer)
 
