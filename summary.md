@@ -146,6 +146,8 @@ tensorboard --logdir results/scaling/strong/nodes2-gpus4/jax-traces --port 8791
 In XProf, start with the Trace Viewer to inspect JIT compilation, CPU dispatch,
 GPU kernels, idle gaps, and communication-related waits. Compare ranks to find
 load imbalance or a rank that reaches synchronization points later than others.
+Each model timestep is emitted as a `veros_step <N>` step marker, enabling
+XProf's per-step time and overview analyses.
 
 Do not enable `jax_trace` in the same run as `nsys` or `ncu`; collect those
 profiles in separate jobs.

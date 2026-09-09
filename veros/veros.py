@@ -2,6 +2,7 @@ import abc
 import json
 import os
 import socket
+from contextlib import nullcontext
 from pathlib import Path
 
 # do not import veros.core here!
@@ -356,7 +357,15 @@ class VerosSetup(metaclass=abc.ABCMeta):
         try:
             with signals.signals_to_exception(), pbar:
                 while vs.time - start_time < settings.runlen:
-                    self.step(self.state)
+                    if rs.backend == "jax" and os.environ.get("VEROS_JAX_PROFILER_TRACE"):
+                        import jax
+
+                        step_context = jax.profiler.StepTraceAnnotation("veros_step", step_num=int(vs.itt))
+                    else:
+                        step_context = nullcontext()
+
+                    with step_context:
+                        self.step(self.state)
 
                     if not timer_context.active:
                         timer_context.active = True

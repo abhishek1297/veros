@@ -89,6 +89,7 @@ def run(setup_file, *args, **kwargs):
     if jax_trace_dir and runtime_settings.backend == "jax":
         import jax
 
+        os.environ["VEROS_JAX_PROFILER_TRACE"] = jax_trace_dir
         print(f"Writing JAX/XProf trace to {jax_trace_dir}", flush=True)
         trace_context = jax.profiler.trace(jax_trace_dir, create_perfetto_trace=True)
     else:
