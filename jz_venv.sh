@@ -9,7 +9,7 @@ VEROS_DIR=$PWD
 rm -rf .venv/
 module purge
 module load arch/h100
-module load pytorch-gpu/py3/2.13.0
+module load pytorch-gpu/py3/2.8.0
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -23,7 +23,7 @@ python3 -m pip install --no-cache-dir setuptools wheel cython
 export CUDA_ROOT="${CUDA_ROOT:-$CUDA_HOME}"
 if [ -z "$CUDA_ROOT" ]; then
     echo "CUDA_ROOT/CUDA_HOME not set by the loaded modules -- find it with" \
-         "'module show cuda/13.2.1' and export it before running this script" >&2
+         "'module show cuda' and export it before running this script" >&2
     exit 1
 fi
 

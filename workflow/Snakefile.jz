@@ -45,12 +45,13 @@ rule slurm_script:
     run:
         ranks = int(wildcards.nodes) * int(wildcards.gpus)
         repo_root = Path.cwd().resolve()
-        
-        asset_dir = os.getenv("VEROS_ASSET_DIR")
+        asset_dir = os.getenv("VEROS_ASSET_DIR", "/lustre/fswork/projects/rech/yah/uyl42ho/veros_assets")
+        scratch_tmp = f"{os.getenv('SCRATCH', '/tmp')}/veros_tmp"
 
         command = [
             "singularity", "exec", "--nv",
-            "--env-file", f"{repo_root}/.jz_env"
+            "--env-file", f"{repo_root}/.jz_env",
+            "--bind", f"{scratch_tmp}:{scratch_tmp}",
             "--bind", f"{repo_root}:/workspace/veros",
             "--bind", f"{asset_dir}:/veros_assets",
             os.path.expandvars(config["container_image"]),
@@ -59,25 +60,19 @@ rule slurm_script:
             "--ranks", str(ranks),
             "--timesteps", str(config["timesteps"]),
             "--repetitions", str(config["repetitions"]),
-            "--launcher", config["launcher"],
-            "--rank-env", config["rank_env"],
+            "--launcher", "mpirun",
+            "--rank-env", "OMPI_COMM_WORLD_LOCAL_RANK",
             "--profiler", config["profiler"],
-            f"--profiler-args={config['profiler_args']}",
+            f"--profiler-args={config['profiler_args']}" if config.get('profiler_args') else "--profiler-args=",
             "--output-dir", params.output_dir,
             *shlex.split(params.size_args),
             "--",
-            "bash", "-c",
-            (
-                'export CUDA_VISIBLE_DEVICES=${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-0}}; '
-                'echo "MPI rank=${SLURM_PROCID:-0} GPU=$CUDA_VISIBLE_DEVICES"; '
-                'exec "$@"'
-            ),
-            "veros-gpu-rank",
+            "/workspace/veros/tools/veros_rank_wrapper.sh",
             "veros", "run", config["setup_file"],
             "-b", "jax", "--device", "gpu",
             "-n", "{px}", "{py}",
             "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
-            "-s", "runlen", str(config["timesteps"] * 450),
+            "-s", "runlen", str(config["timesteps"] * config["dt"]),
             "--diskless-mode",
         ]
 
@@ -95,19 +90,16 @@ set -euo pipefail
 
 {config['environment']['init'].strip()}
 
+export SINGULARITYENV_CUDA_COMPAT_UNLINK=0
+export SINGULARITYENV_OMPI_MCA_orte_keep_fqdn_hostnames=0
+export SINGULARITYENV_OMPI_MCA_btl=self,vader
+export TMPDIR="{scratch_tmp}"
+mkdir -p "$TMPDIR"
+
 cd {shlex.quote(str(repo_root))}
 mkdir -p {shlex.quote(params.output_dir)}
 
-srun --mpi=pmi2 {shlex.join(command)}
+{shlex.join(command)}
 """
         Path(output.script).write_text(script)
         os.chmod(output.script, 0o755)
-
-
-rule plot:
-    input:
-        result_files(),
-    output:
-        "results/scaling/plots/scaling.png",
-    shell:
-        "python tools/plot_scaling.py --input-glob 'results/scaling/*/scaling.json' --output {output}"

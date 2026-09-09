@@ -4,30 +4,43 @@
 #SBATCH --output=.std/veros.out
 #SBATCH --error=.std/veros.err
 #SBATCH --account=yah@h100
-#SBATCH --ntasks=2 -C h100 --gres=gpu:2 --qos=qos_gpu_h100-dev
+#SBATCH --nodes=1 --ntasks-per-node=2 -C h100 --gres=gpu:2 --qos=qos_gpu_h100-dev
 #SBATCH --time=00:05:00
 
 module purge
-module load arch/h100
-module load pytorch-gpu/py3/2.13.0
+module load singularity
 
-source .venv/bin/activate
-export MPI4JAX_USE_CUDA_MPI=1
-export XLA_PYTHON_CLIENT_PREALLOCATE="false"
+export TMPDIR="$SCRATCH/veros_tmp"
+mkdir -p "$TMPDIR"
 
-# Segfault workaround: without opal_cuda_support, Open MPI/UCX can mishandle
-# GPU pointers; without disabling the memtype cache, it can go stale against
-# XLA's own pooled CUDA allocator and touch memory as the wrong type.
-export OMPI_MCA_opal_cuda_support=1
-export UCX_TLS=rc,cuda_copy,cuda_ipc,sm
-export UCX_MEMTYPE_CACHE=n
-# if this still segfaults, try disabling GPU-direct MPI entirely instead:
-#   export MPI4JAX_USE_CUDA_MPI=0
+# Allow OpenMPI inside the container to run without host PMIx restrictions
+# export SINGULARITYENV_OMPI_MCA_orte_keep_fqdn_hostnames=0
+# export SINGULARITYENV_OMPI_MCA_btl=self,vader
 
-echo "VEROS Asset Dir: $VEROS_ASSET_DIR"
-echo "Active Python: $(which python3)"
-echo "Active Veros Path: $(which veros 2>/dev/null || echo 'Not found in PATH')"
 
 nvidia-smi
-srun veros run veros/setups/global_flexible/global_flexible.py --backend jax --device gpu -n 1 2 --diskless-mode
- 
+
+# Execute mpirun directly inside the Singularity context
+# singularity exec --nv \
+#     --env-file .jz_env \
+#     --bind "$TMPDIR:$TMPDIR" \
+#     --bind "$VEROS_ASSET_DIR:/veros_assets" \
+#     --bind "$PWD:/workspace/veros" \
+#     "$SINGULARITY_ALLOWED_DIR/jax-veros2.sif" \
+#     mpirun -np 2 --allow-run-as-root \
+#     bash -c '
+#         export CUDA_VISIBLE_DEVICES=${OMPI_COMM_WORLD_LOCAL_RANK:-0}
+#         veros run /workspace/veros/veros/setups/global_flexible/global_flexible.py --backend jax --device gpu -n 1 2 --diskless-mode
+#     '
+
+
+srun --mpi=pmix singularity exec --nv \
+    --env-file .jz_env \
+    --bind "$TMPDIR:$TMPDIR" \
+    --bind "$VEROS_ASSET_DIR:/veros_assets" \
+    --bind "$PWD:/workspace/veros" \
+    "$SINGULARITY_ALLOWED_DIR/jax-veros2.sif" \
+    bash -c '
+        export CUDA_VISIBLE_DEVICES=${SLURM_LOCALID:-0}
+        veros run /workspace/veros/veros/setups/global_flexible/global_flexible.py --backend jax --device gpu -n 1 2 --diskless-mode
+    '

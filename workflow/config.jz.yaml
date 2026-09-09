@@ -1,32 +1,31 @@
 setup_file: /workspace/veros/veros/setups/global_flexible/global_flexible.py
 
-launcher: srun
-rank_env: SLURM_PROCID
-local_rank_env: SLURM_LOCALID
+launcher: mpirun 
+rank_env: OMPI_COMM_WORLD_RANK
+local_rank_env: OMPI_COMM_WORLD_LOCAL_RANK
 memory_sample_interval: 5
 communication_profile: true
 jax_trace: true
 profiler: none
 profiler_args: ""
 timesteps: 100
+dt: 450
 repetitions: 1
 
-container_image: $SINGULARITY_ALLOWED_DIR/veros.sif
+container_image: /lustre/fsn1/singularity/images/uyl42ho/jax-veros2.sif
 
 environment:
   init: |
     module purge
-    module load arch/h100
+    module load singularity
 
-    export MPI4JAX_USE_CUDA_MPI=1
-    export XLA_PYTHON_CLIENT_PREALLOCATE="false"
     export VEROS_ASSET_DIR=/lustre/fswork/projects/rech/yah/uyl42ho/veros_assets
 
 strong:
   size: [720, 420, 80]
 
 weak:
-  local_size: [90, 40, 20]
+  local_size: [360, 160, 60]
 
 topologies:
   - nodes: 1
@@ -36,8 +35,6 @@ topologies:
   # - nodes: 1
   #   gpus_per_node: 4
   # - nodes: 2
-  #   gpus_per_node: 4
-  # - nodes: 3
   #   gpus_per_node: 4
   # - nodes: 4
   #   gpus_per_node: 4
