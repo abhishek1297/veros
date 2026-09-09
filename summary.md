@@ -97,10 +97,10 @@ results/scaling/<mode>/nodes<N>-gpus<G>/jax-traces/repeat<R>-rank<RANK>/
 ```
 
 The actual profile files are below the JAX-created `plugins/profile/`
-subdirectory. The Slurm log prints `Writing JAX/XProf trace to ...` and
-`JAX/XProf trace completed at ...` for every rank, making the exact output
-directory visible after each run. If tracing is not enabled, the workflow
-runner prints an explicit `JAX/XProf tracing is disabled` diagnostic instead.
+subdirectory. The generated command passes this location explicitly through
+`veros run --jax-trace-dir`. The Slurm log prints `Writing JAX/XProf trace to
+...` and `JAX/XProf trace completed at ...` for every rank, making the exact
+output directory visible after each run.
 
 List all traces with:
 

@@ -3,6 +3,8 @@ import inspect
 import os
 import sys
 import importlib
+from contextlib import nullcontext
+from pathlib import Path
 
 import click
 
@@ -45,6 +47,7 @@ def run(setup_file, *args, **kwargs):
     """Runs a Veros setup from given file"""
     from veros import runtime_settings, VerosSetup, __version__ as veros_version
 
+    jax_trace_dir = kwargs.pop("jax_trace_dir", None)
     kwargs["override"] = dict(kwargs["override"])
 
     runtime_setting_kwargs = (
@@ -83,8 +86,23 @@ def run(setup_file, *args, **kwargs):
         )
 
     sim = SetupClass(*args, **kwargs)
-    sim.setup()
-    sim.run()
+    if jax_trace_dir and runtime_settings.backend == "jax":
+        import jax
+
+        print(f"Writing JAX/XProf trace to {jax_trace_dir}", flush=True)
+        trace_context = jax.profiler.trace(jax_trace_dir, create_perfetto_trace=True)
+    else:
+        trace_context = nullcontext()
+
+    with trace_context:
+        sim.setup()
+        sim.run()
+
+    if jax_trace_dir and runtime_settings.backend == "jax":
+        trace_files = [path for path in Path(jax_trace_dir).rglob("*") if path.is_file()]
+        if not trace_files:
+            raise RuntimeError(f"JAX profiler completed but wrote no trace files to {jax_trace_dir}")
+        print(f"JAX/XProf trace completed at {jax_trace_dir} ({len(trace_files)} files)", flush=True)
 
 
 @click.command("veros-run")
@@ -96,6 +114,12 @@ def run(setup_file, *args, **kwargs):
     type=click.Choice(["numpy", "jax"]),
     help="Backend to use for computations",
     show_default=True,
+)
+@click.option(
+    "--jax-trace-dir",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Write a JAX/XProf trace to this directory",
 )
 @click.option(
     "--device",

@@ -71,9 +71,14 @@ rule slurm_script:
                 f"local_rank=${config['local_rank_env']} "
                 "GPU=$CUDA_VISIBLE_DEVICES\"; "
                 "exec \"$@\""
+                + (
+                    " --jax-trace-dir \"$VEROS_JAX_PROFILER_TRACE\""
+                    if config.get("jax_trace", True)
+                    else ""
+                )
             ),
             "veros-gpu-rank",
-            "python", "tools/veros_jax_trace.py", "run", config["setup_file"],
+            "python", "-m", "veros", "run", config["setup_file"],
             "-b", "jax", "--device", "gpu",
             "-n", "{px}", "{py}",
             "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
