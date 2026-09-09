@@ -37,7 +37,7 @@ sbatch results/scaling/jobs/strong-nodes2-gpus4.slurm
 For a dry run:
 
 ```bash
-snakemake --snakefile workflow/Snakefile --configfile workflow/config.jz.yaml --cores 1 -n -p
+snakemake --snakefile workflow/Snakefile.jz --configfile workflow/config.jz.yaml --cores 1 -n -p
 ```
 
 Edit the relevant config file before generating the scripts to change
