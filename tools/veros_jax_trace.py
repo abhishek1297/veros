@@ -14,7 +14,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT))
 def main():
     from veros.cli.veros import cli
 
-    trace_dir = os.environ.pop("VEROS_JAX_PROFILER_TRACE", None)
+    trace_dir = os.environ.get("VEROS_JAX_PROFILER_TRACE")
     if trace_dir:
         import jax
 
