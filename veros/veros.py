@@ -1,4 +1,8 @@
 import abc
+import json
+import os
+import socket
+from pathlib import Path
 
 # do not import veros.core here!
 from veros import settings, time, signals, distributed, progress, runtime_settings as rs, logger
@@ -421,6 +425,26 @@ class VerosSetup(metaclass=abc.ABCMeta):
 
         if rs.profile_mode:
             print_profile_summary(self.state.profile_timers, self.state.timers["main"].total_time)
+
+        profile_output = os.environ.get("VEROS_PROFILE_OUTPUT")
+        if profile_output:
+            from veros import runtime_state as rst
+
+            main_time = self.state.timers["main"].total_time
+            communication_time = self.state.timers["boundary_exchange"].total_time
+            compute_time = max(main_time - communication_time, 0.0)
+            payload = {
+                "rank": rst.proc_rank,
+                "hostname": socket.gethostname(),
+                "main_loop_seconds": main_time,
+                "halo_exchange_seconds": communication_time,
+                "estimated_compute_seconds": compute_time,
+                "communication_fraction_percent": 100 * communication_time / max(main_time, 1e-12),
+                "communication_to_compute_ratio": communication_time / max(compute_time, 1e-12),
+            }
+            output_path = Path(profile_output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps(payload, indent=2) + "\n")
 
 
 def print_profile_summary(profile_timers, main_loop_time):

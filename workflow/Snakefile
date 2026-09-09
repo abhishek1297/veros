@@ -57,6 +57,8 @@ rule slurm_script:
             "--rank-env", config["rank_env"],
             "--local-rank-env", config["local_rank_env"],
             "--memory-sample-interval", str(config.get("memory_sample_interval", 5)),
+            *(["--communication-profile"] if config.get("communication_profile", True) else []),
+            *(["--jax-trace"] if config.get("jax_trace", True) else []),
             "--profiler", config["profiler"],
             f"--profiler-args={config['profiler_args']}",
             "--output-dir", params.output_dir,
@@ -77,6 +79,7 @@ rule slurm_script:
             "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
             "-s", "runlen", str(config["timesteps"] * 900),
             "--diskless-mode",
+            *(["--profile-mode"] if config.get("communication_profile", True) else []),
         ]
         script = f"""#!/bin/bash
 #SBATCH --job-name=veros-{wildcards.mode}-n{wildcards.nodes}-g{wildcards.gpus}
@@ -103,6 +106,10 @@ rule plot:
     input:
         result_files(),
     output:
-        "results/scaling/plots/scaling.png",
+        scaling="results/scaling/plots/scaling.png",
+        resources="results/scaling/plots/resource_usage.png",
+        communication="results/scaling/plots/communication_compute_ratio.png",
     shell:
-        "python tools/plot_scaling.py --input-glob 'results/scaling/*/scaling.json' --output {output}"
+        "python tools/plot_scaling.py --input-glob 'results/scaling/*/*/scaling.json' "
+        "--output {output.scaling} --resource-output {output.resources} "
+        "--communication-output {output.communication}"

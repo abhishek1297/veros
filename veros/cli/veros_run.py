@@ -3,6 +3,7 @@ import inspect
 import os
 import sys
 import importlib
+from contextlib import nullcontext
 
 import click
 
@@ -83,8 +84,17 @@ def run(setup_file, *args, **kwargs):
         )
 
     sim = SetupClass(*args, **kwargs)
-    sim.setup()
-    sim.run()
+    trace_dir = os.environ.get("VEROS_JAX_PROFILER_TRACE")
+    if trace_dir and runtime_settings.backend == "jax":
+        import jax
+
+        trace_context = jax.profiler.trace(trace_dir, create_perfetto_trace=True)
+    else:
+        trace_context = nullcontext()
+
+    with trace_context:
+        sim.setup()
+        sim.run()
 
 
 @click.command("veros-run")

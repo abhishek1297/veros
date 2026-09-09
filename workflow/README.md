@@ -68,6 +68,26 @@ The generated `results/scaling/plots/scaling.png` contains:
 - weak-scaling elapsed time versus total GPUs, where a flat curve is ideal;
 - a combined node-placement comparison.
 
+The generated `results/scaling/plots/resource_usage.png` contains a 2-by-3
+subplot grid for strong- and weak-scaling GPU memory use, compute utilization,
+and synchronized halo-communication share. Time-series lines are means across
+GPUs and repetitions; shaded bands span the minimum to maximum GPU value. Raw
+per-GPU samples remain available in `scaling.json`.
+
+The generated `results/scaling/plots/communication_compute_ratio.png` plots
+the halo-communication time divided by estimated compute time for every
+topology. The JSON also records this `communication_to_compute_ratio` and its
+per-rank inputs. This is a halo-exchange timing estimate, not a measurement of
+all MPI reductions or physical NVLink/InfiniBand bytes.
+
+When `jax_trace: true`, every rank also writes an XProf-compatible JAX trace
+under the case's `jax-traces/` directory. Point XProf or TensorBoard at that
+directory to inspect device timelines and JAX operations.
+
+JAX tracing cannot be enabled in the same run as `nsys` or `ncu`, because the
+profilers compete for GPU tracing facilities. To collect an Nsight report in a
+separate run, set `jax_trace: false` and select the desired `profiler`.
+
 For a fuller study, also plot strong-scaling speedup and efficiency:
 
 ```text

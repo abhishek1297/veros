@@ -4,8 +4,10 @@ launcher: srun
 rank_env: SLURM_PROCID
 local_rank_env: SLURM_LOCALID
 memory_sample_interval: 5
-profiler: nsys
-profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=true --cuda-graph-trace=node"
+communication_profile: true
+jax_trace: true
+profiler: none
+profiler_args: ""
 timesteps: 100
 repetitions: 1
 

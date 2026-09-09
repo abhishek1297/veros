@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one MPI rank and periodically record its node-local GPU memory use."""
+"""Run one MPI rank and periodically record its node-local GPU usage."""
 
 import argparse
 import json
@@ -16,16 +16,17 @@ def query_gpu(gpu_index):
         "nvidia-smi",
         "-i",
         str(gpu_index),
-        "--query-gpu=index,uuid,memory.used,memory.total",
+        "--query-gpu=index,uuid,memory.used,memory.total,utilization.gpu",
         "--format=csv,noheader,nounits",
     ]
     completed = subprocess.run(command, check=True, capture_output=True, text=True)
-    index, uuid, used, total = (item.strip() for item in completed.stdout.strip().split(","))
+    index, uuid, used, total, utilization = (item.strip() for item in completed.stdout.strip().split(","))
     return {
         "gpu_index": int(index),
         "gpu_uuid": uuid,
         "memory_used_mib": int(used),
         "memory_total_mib": int(total),
+        "compute_utilization_percent": int(utilization),
     }
 
 

@@ -76,6 +76,8 @@ def build_parser():
         default=5.0,
         help="Seconds between per-GPU memory samples; set to 0 to disable",
     )
+    parser.add_argument("--communication-profile", action="store_true", help="Record synchronized halo-exchange timing")
+    parser.add_argument("--jax-trace", action="store_true", help="Write a per-rank JAX/XProf trace")
     parser.add_argument("--output-dir", type=Path, default=Path("cuda-scaling-results"))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER, help="Program template, preceded by --")
@@ -91,6 +93,8 @@ def validate_args(args):
         raise ValueError("--repetitions and --timesteps must be positive")
     if args.memory_sample_interval < 0:
         raise ValueError("--memory-sample-interval must be non-negative")
+    if args.jax_trace and args.profiler != "none":
+        raise ValueError("--jax-trace cannot be combined with nsys or ncu; both profilers compete for GPU tracing")
     if not args.command or args.command[0] != "--":
         raise ValueError("the program template must follow --")
 
@@ -117,18 +121,34 @@ def command_for_run(args, ranks, repeat, output_dir):
     except KeyError as exc:
         raise ValueError(f"unknown command placeholder: {exc.args[0]}") from None
 
+    rank_setup = []
+    rank_expression = f'"${{{args.rank_env}:-0}}"'
+    if args.communication_profile:
+        profile_prefix = output_dir / f"veros-profile-repeat{repeat}-rank"
+        rank_setup.append(f"export VEROS_PROFILE_OUTPUT={shlex.quote(str(profile_prefix))}-{rank_expression}.json")
+    if args.jax_trace:
+        trace_prefix = output_dir / "jax-traces" / f"repeat{repeat}-rank"
+        rank_setup.append(f"export VEROS_JAX_PROFILER_TRACE={shlex.quote(str(trace_prefix))}-{rank_expression}")
+
     if args.memory_sample_interval:
         monitor = Path(__file__).with_name("gpu_memory_monitor.py").resolve()
         output_prefix = output_dir / f"gpu-memory-repeat{repeat}-rank"
-        rank_expression = f'"${{{args.rank_env}:-0}}"'
-        monitor_command = (
-            f"exec {shlex.quote(sys.executable)} {shlex.quote(str(monitor))} "
-            f"--output {shlex.quote(str(output_prefix))}-{rank_expression}.json "
-            f"--interval {args.memory_sample_interval} "
-            f"--rank-env {shlex.quote(args.rank_env)} "
-            f"--local-rank-env {shlex.quote(args.local_rank_env)} -- \"$@\""
+        monitor_command = "; ".join(
+            rank_setup
+            + [
+                (
+                    f"exec {shlex.quote(sys.executable)} {shlex.quote(str(monitor))} "
+                    f"--output {shlex.quote(str(output_prefix))}-{rank_expression}.json "
+                    f"--interval {args.memory_sample_interval} "
+                    f"--rank-env {shlex.quote(args.rank_env)} "
+                    f"--local-rank-env {shlex.quote(args.local_rank_env)} -- \"$@\""
+                )
+            ]
         )
         program = ["sh", "-c", monitor_command, "veros-memory-monitor", *program]
+    elif rank_setup:
+        rank_command = "; ".join(rank_setup + ['exec "$@"'])
+        program = ["sh", "-c", rank_command, "veros-rank-profile", *program]
 
     command = shlex.split(args.launcher) + shlex.split(args.launcher_args) + ["-n", str(ranks)]
     if args.profiler == "nsys":
@@ -172,11 +192,27 @@ def main():
                 if payload.get("rank", ranks) < ranks:
                     memory_samples.append(payload)
             memory_samples.sort(key=lambda payload: payload["rank"])
+            communication_profiles = []
+            for profile_file in sorted(args.output_dir.glob(f"veros-profile-repeat{repeat}-rank*.json")):
+                payload = json.loads(profile_file.read_text())
+                if payload.get("rank", ranks) < ranks:
+                    communication_profiles.append(payload)
+            communication_profiles.sort(key=lambda payload: payload["rank"])
+            communication_time = sum(payload["halo_exchange_seconds"] for payload in communication_profiles)
+            compute_time = sum(payload["estimated_compute_seconds"] for payload in communication_profiles)
+            main_time = sum(payload["main_loop_seconds"] for payload in communication_profiles)
             result = {
                 "repeat": repeat,
                 "returncode": completed.returncode,
                 "elapsed_seconds": elapsed,
                 "gpu_memory_samples": memory_samples,
+                "communication_profiles": communication_profiles,
+                "communication_fraction_percent": (
+                    100 * communication_time / main_time if communication_profiles and main_time else None
+                ),
+                "communication_to_compute_ratio": (
+                    communication_time / compute_time if communication_profiles and compute_time else None
+                ),
                 **values,
             }
             results.append(result)
@@ -189,6 +225,8 @@ def main():
         "launcher": args.launcher,
         "repetitions": args.repetitions,
         "memory_sample_interval_seconds": args.memory_sample_interval,
+        "communication_profile": args.communication_profile,
+        "jax_trace": args.jax_trace,
         "results": results,
     }
     output_file = args.output_dir / "scaling.json"

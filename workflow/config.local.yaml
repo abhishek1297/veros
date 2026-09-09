@@ -4,8 +4,10 @@ launcher: mpirun
 rank_env: OMPI_COMM_WORLD_RANK
 local_rank_env: OMPI_COMM_WORLD_LOCAL_RANK
 memory_sample_interval: 5
-profiler: nsys
-profiler_args: "--trace=cuda,nvtx --sample=none --cuda-memory-usage=true --cuda-graph-trace=node"
+communication_profile: true
+jax_trace: true
+profiler: none
+profiler_args: ""
 timesteps: 3
 repetitions: 1
 
