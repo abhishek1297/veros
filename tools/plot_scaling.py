@@ -239,6 +239,72 @@ def plot_communication_compute_ratio(records, output):
     print(f"Wrote {output}")
 
 
+def write_summary(records, output):
+    grouped = {}
+    for record in records:
+        key = (record["mode"], record["nodes"], record["gpus_per_node"])
+        grouped.setdefault(key, []).append(record)
+
+    lines = [
+        "# CUDA scaling summary",
+        "",
+        "| Mode | Nodes | GPUs/node | Total GPUs | Median elapsed (s) | Peak memory/GPU (MiB) "
+        "| Mean GPU utilization (%) | Halo communication (%) | Communication/compute |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for (mode, nodes, gpus_per_node), group in sorted(grouped.items()):
+        samples = [
+            sample
+            for record in group
+            for gpu in record.get("gpu_memory_samples", [])
+            for sample in gpu.get("samples", [])
+        ]
+        memory = [sample["memory_used_mib"] for sample in samples if "memory_used_mib" in sample]
+        utilization = [
+            sample["compute_utilization_percent"]
+            for sample in samples
+            if "compute_utilization_percent" in sample
+        ]
+        communication = [
+            record["communication_fraction_percent"]
+            for record in group
+            if record.get("communication_fraction_percent") is not None
+        ]
+        ratios = [
+            record["communication_to_compute_ratio"]
+            for record in group
+            if record.get("communication_to_compute_ratio") is not None
+        ]
+
+        peak_memory = f"{max(memory):.0f}" if memory else "N/A"
+        mean_utilization = f"{sum(utilization) / len(utilization):.1f}" if utilization else "N/A"
+        mean_communication = f"{sum(communication) / len(communication):.2f}" if communication else "N/A"
+        mean_ratio = f"{sum(ratios) / len(ratios):.4f}" if ratios else "N/A"
+        lines.append(
+            f"| {mode} | {nodes} | {gpus_per_node} | {nodes * gpus_per_node} | {median(group):.3f} "
+            f"| {peak_memory} | {mean_utilization} | {mean_communication} | {mean_ratio} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Definitions",
+            "",
+            "- Elapsed time is the median wall-clock duration across repetitions.",
+            "- Peak memory is the largest sampled per-GPU allocation.",
+            "- GPU utilization is averaged across all five-second samples, GPUs, and repetitions.",
+            "- Halo communication is synchronized boundary-exchange time as a percentage of main-loop time.",
+            "- Communication/compute is halo-exchange time divided by estimated compute time.",
+            "- Halo exchange does not include every MPI reduction or measure physical interconnect bytes.",
+        ]
+    )
+
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines) + "\n")
+    print(f"Wrote {output}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-glob", default="results/scaling/*/*/scaling.json")
@@ -247,6 +313,7 @@ def main():
     parser.add_argument(
         "--communication-output", default="results/scaling/plots/communication_compute_ratio.png"
     )
+    parser.add_argument("--summary-output", default="results/scaling/plots/summary.md")
     args = parser.parse_args()
     records = load_results(args.input_glob)
     if not records:
@@ -254,6 +321,7 @@ def main():
     plot_scaling(records, args.output)
     plot_resource_usage(records, args.resource_output)
     plot_communication_compute_ratio(records, args.communication_output)
+    write_summary(records, args.summary_output)
 
 
 if __name__ == "__main__":

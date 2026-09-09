@@ -109,7 +109,8 @@ rule plot:
         scaling="results/scaling/plots/scaling.png",
         resources="results/scaling/plots/resource_usage.png",
         communication="results/scaling/plots/communication_compute_ratio.png",
+        summary="results/scaling/plots/summary.md",
     shell:
         "python tools/plot_scaling.py --input-glob 'results/scaling/*/*/scaling.json' "
         "--output {output.scaling} --resource-output {output.resources} "
-        "--communication-output {output.communication}"
+        "--communication-output {output.communication} --summary-output {output.summary}"

@@ -80,6 +80,10 @@ topology. The JSON also records this `communication_to_compute_ratio` and its
 per-rank inputs. This is a halo-exchange timing estimate, not a measurement of
 all MPI reductions or physical NVLink/InfiniBand bytes.
 
+The generated `results/scaling/plots/summary.md` provides a per-topology table
+of median elapsed time, peak per-GPU memory, mean GPU utilization, halo
+communication share, and communication-to-compute ratio.
+
 When `jax_trace: true`, every rank also writes an XProf-compatible JAX trace
 under the case's `jax-traces/` directory. Point XProf or TensorBoard at that
 directory to inspect device timelines and JAX operations.
