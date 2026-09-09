@@ -55,6 +55,10 @@ rule slurm_script:
             "--repetitions", str(config["repetitions"]),
             "--launcher", config["launcher"],
             "--rank-env", config["rank_env"],
+            "--local-rank-env", config["local_rank_env"],
+            "--memory-sample-interval", str(config.get("memory_sample_interval", 5)),
+            *(["--communication-profile"] if config.get("communication_profile", True) else []),
+            *(["--jax-trace"] if config.get("jax_trace", True) else []),
             "--profiler", config["profiler"],
             f"--profiler-args={config['profiler_args']}",
             "--output-dir", params.output_dir,
@@ -67,14 +71,20 @@ rule slurm_script:
                 "local_rank=$OMPI_COMM_WORLD_LOCAL_RANK "
                 "GPU=$CUDA_VISIBLE_DEVICES\"; "
                 "exec \"$@\""
+                + (
+                    " --jax-trace-dir \"$VEROS_JAX_PROFILER_TRACE\""
+                    if config.get("jax_trace", True)
+                    else ""
+                )
             ),
             "veros-gpu-rank",
-            "veros", "run", config["setup_file"],
+            "python", "-m", "veros", "run", config["setup_file"],
             "-b", "jax", "--device", "gpu",
             "-n", "{px}", "{py}",
             "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
             "-s", "runlen", str(config["timesteps"] * 450),
             "--diskless-mode",
+            *(["--profile-mode"] if config.get("communication_profile", True) else []),
         ]
         script = f"""#!/bin/bash
 #SBATCH -p Odyssey_GPU --qos=high
