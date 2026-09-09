@@ -77,7 +77,7 @@ rule slurm_script:
             "-b", "jax", "--device", "gpu",
             "-n", "{px}", "{py}",
             "-s", "nx", "{nx}", "-s", "ny", "{ny}", "-s", "nz", "{nz}",
-            "-s", "runlen", str(config["timesteps"] * 900),
+            "-s", "runlen", str(config["timesteps"] * 450),
             "--diskless-mode",
         ]
 

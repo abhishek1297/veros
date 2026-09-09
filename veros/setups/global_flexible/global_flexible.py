@@ -45,7 +45,7 @@ class GlobalFlexibleResolutionSetup(VerosSetup):
         settings.nx = 360
         settings.ny = 160
         settings.nz = 60
-        settings.dt_mom = settings.dt_tracer = 900
+        settings.dt_mom = settings.dt_tracer = 450
         settings.runlen = 86400 * 10
 
         settings.x_origin = 90.0
