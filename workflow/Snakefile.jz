@@ -60,8 +60,9 @@ rule slurm_script:
             "--ranks", str(ranks),
             "--timesteps", str(config["timesteps"]),
             "--repetitions", str(config["repetitions"]),
-            "--launcher", "mpirun",
-            "--rank-env", "OMPI_COMM_WORLD_LOCAL_RANK",
+            "--launcher", config["launcher"],
+            "--rank-env", config["rank_env"],
+            "--local-rank-env", config["local_rank_env"],
             "--profiler", config["profiler"],
             f"--profiler-args={config['profiler_args']}" if config.get('profiler_args') else "--profiler-args=",
             "--output-dir", params.output_dir,
@@ -83,6 +84,7 @@ rule slurm_script:
 #SBATCH --nodes={wildcards.nodes}
 #SBATCH --ntasks-per-node={wildcards.gpus}
 #SBATCH --gres=gpu:{wildcards.gpus}
+#SBATCH --mem=80G
 #SBATCH --output=results/scaling/jobs/%x-%j.out
 #SBATCH --error=results/scaling/jobs/%x-%j.err
 
